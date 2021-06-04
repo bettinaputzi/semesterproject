@@ -1,0 +1,81 @@
+---
+title: "Semseterprojekt Wildschweinschreck"
+output: html_document
+---
+
+```{r libraries, include=FALSE}
+library(readr)        # to import tabular data (e.g. csv)
+library(dplyr)        # to manipulate (tabular) data
+library(ggplot2)      # to visualize data
+library(sf)           # to handle spatial vector data
+library(terra)        # To handle raster data
+library(lubridate)    # To handle dates and times
+library(zoo)
+#install.packages("devtools")
+library(devtools)
+library(ComputationalMovementAnalysisData)
+```
+
+test
+
+test2
+
+
+```{r data read in, inlcude=FALSE}
+wildschwein<- read_delim("wildschwein_BE_all_raw.csv",",") 
+schreckagenda<-read_delim("schreckagenda_2014-2017.csv", ",")
+
+summary(wildschwein$speed)
+
+devtools::install_github("ComputationalMovementAnalysis/ComputationalMovementAnalysisData")
+head(wildschwein_BE)
+wildschwein_BE<-wildschwein_BE
+```
+```{r}
+ggplot(wildschwein, aes(Long, Lat, colour = Tier))+
+  geom_point()
+
+ggplot(wildschwein, aes(ZeitpUTC,Tier)) +
+  geom_line()
+
+ggplot(wildschwein, aes(timelag)) +
+  geom_histogram(binwidth = 50) +
+  lims(x = c(0,15000)) +
+  scale_y_log10()
+
+
+wildschwein %>%
+  filter(year(ZeitpUTC)  == 2015) %>%
+  ggplot(aes(ZeitpUTC,timelag, colour = Tier)) +
+  geom_line() +
+  geom_point()
+
+```
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
