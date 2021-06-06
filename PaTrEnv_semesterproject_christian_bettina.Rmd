@@ -2,8 +2,9 @@
 title: "Semseterprojekt Wildschweinschreck"
 output: html_document
 ---
+ADD CHUNK by clicking ctrl+alt+I
 
-```{r libraries, include=FALSE}
+```{r libraries, echo=F, results='hide', message=F, warning=F}
 library(readr)        # to import tabular data (e.g. csv)
 library(dplyr)        # to manipulate (tabular) data
 library(ggplot2)      # to visualize data
@@ -14,68 +15,168 @@ library(zoo)
 #install.packages("devtools")
 library(devtools)
 library(ComputationalMovementAnalysisData)
+library(forcats)
+library(plotly)
 ```
 
-test
-
-test2
 
 
-```{r data read in, inlcude=FALSE}
-wildschwein<- read_delim("wildschwein_BE_all_raw.csv",",") 
-schreckagenda<-read_delim("schreckagenda_2014-2017.csv", ",")
-
-summary(wildschwein$speed)
-
+```{r Daten einlesen, echo=F, results='hide', message=F, warning=F}
 devtools::install_github("ComputationalMovementAnalysis/ComputationalMovementAnalysisData")
 head(wildschwein_BE)
 wildschwein_BE<-wildschwein_BE
-```
-```{r}
-ggplot(wildschwein, aes(Long, Lat, colour = Tier))+
-  geom_point()
-
-ggplot(wildschwein, aes(ZeitpUTC,Tier)) +
-  geom_line()
-
-ggplot(wildschwein, aes(timelag)) +
-  geom_histogram(binwidth = 50) +
-  lims(x = c(0,15000)) +
-  scale_y_log10()
-
-
-wildschwein %>%
-  filter(year(ZeitpUTC)  == 2015) %>%
-  ggplot(aes(ZeitpUTC,timelag, colour = Tier)) +
-  geom_line() +
-  geom_point()
-
+wildschwein_metadata<-wildschwein_metadata
+wildschwein_overlap_temp<-wildschwein_overlap_temp
+schreck_agenda<-schreck_agenda
+schreck_locations<-schreck_locations
 ```
 
 
+## Das Sampling Regime der Wildschweine
+```{r Nils Plot on sampling regime, echo=T, results='hide', message=F, warning=F}
+limits <- c(0,200)
+breaks = seq(0,200,50)
+labels = paste(c(rep("",length(breaks)-1),">"), breaks)
 
+wildschwein_BE %>%
+  mutate(TierName = fct_reorder(TierName, DatetimeUTC,min, .desc = TRUE)) %>%
+  group_by(TierID, TierName, CollarID) %>%
+  mutate(
+    timelag = as.numeric(difftime(lead(DatetimeUTC),DatetimeUTC, units = "mins")),
+    ) %>%
+  ggplot(aes(DatetimeUTC, TierName, colour = timelag)) +
+  geom_line(lwd = 10) +
+  scale_color_gradientn(name = "Sampling interval", colours = RColorBrewer::brewer.pal(11, "Spectral"), limits = limits, na.value = NA, oob = scales::squish, breaks = seq(0,200,50), labels = labels) +
+  theme_minimal() +
+  theme(legend.position = "top") +
+  guides(color = guide_colorbar(title.position = "top", title.hjust = .5, barwidth = unit(20, "lines"), barheight = unit(.5, "lines")))
 
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+
+## Die geografischen Zusammenhänge zwischen den Wildschweinen un den Wildschwein-Schrecks
+```{r Überblick über den geografischen Overlap zwischen den Wildschweinen und den Wildschwein-Schrecks, echo=T, results='hide', message=F, warning=F}
+# Ortsbezogne Wildschweindaten werden  CRS 2056 zugewiesen
+wildschwein_sf <- wildschwein_BE %>%
+  st_as_sf(coords = c("E", "N"), crs = 2056) %>%
+  mutate(tiercollar = paste(TierID, TierName, CollarID))
+wildschwein_sf
+
+# Die ortsbezogenen Wilschweinschreck-Daten werden dem CRS 4326 zugewiesen und zu 2056 umgewandelt 
+WSS_sf <- schreck_locations%>%
+  st_as_sf(coords = c("N","E"), crs=4326, remove = FALSE) #N and E waren vertauscht
+
+WSS_sf <- st_transform(WSS_sf, 2056)
+WSS_sf
+str(WSS_sf)
+
+# Ein Convex-Hull wird erstellt und geplottet, um die Verteilung der Wildschweine aufzuzeigen
+wildschwein_convex_hull <- wildschwein_sf %>%
+  group_by(TierID, TierName, CollarID) %>%
+  summarise() %>%
+  st_convex_hull()
+
+wildschwein_convex_hull %>%
+  mutate(tiercollar = paste(TierID, TierName, CollarID))%>%
+  ggplot(aes(fill = factor(TierID))) + geom_sf(alpha = 0.1) +
+  coord_sf(datum = 2056) +
+  facet_wrap(~tiercollar) +
+  theme(legend.position = "none")
+
+wildschwein_convex_hull %>%
+  mutate(tiercollar = paste(TierID, TierName, CollarID))
+
+# Zusätzlich wird der Zusammenhang der Wildschweine und der Wildschweinschrecks aufgezeigt
+plot_boars_schreck<-ggplot()+
+ geom_sf(data = wildschwein_convex_hull, aes(fill = factor(TierID), alpha=0.1))+
+ geom_sf(data = WSS_sf, aes(color=factor(id)))+
+  coord_sf(datum = 2056)+
+  theme(legend.position = "none")
+
+ggplotly(plot_boars_schreck)
+
+# jetzt können alle Wildschweinschrecks rausgefiltert werden, die nicht in den convex hulls sind. Viele der Wildschweinschrecks sind ausserhalb des Aufenthaltsgebiets von Wildschweinen. Wir machen das explorativ, gäbe aber sicher eine bessere Lösung
+
+WSS_sf$id=="WSS_2017_10b" # bzw. WSS_2017_6
+# alle N<47.07897 und N>46.80820 und alle E<7.2016144 und E> 6.778667 können im Dataensatz bleiben
+
+WSS_sf_relevant <- WSS_sf%>%
+  filter(E <= 47.078 & E>46.808201 & N <= 7.2016 & N > 6.778667)
+	
+# hier nochmal der Plot, nur noch mit den relevanten Wildschweinschrecks
+plot_boars_schreck_rel<-ggplot()+
+ geom_sf(data = wildschwein_convex_hull, aes(fill = factor(TierID), alpha=0.1))+
+ geom_sf(data = WSS_sf_relevant, aes(color=factor(id)))+
+  coord_sf(datum = 2056)+
+  theme(legend.position = "none")
+  #xlim(2560000,2580000)+
+  #ylim(1190000,1210000)
+plot_boars_schreck_rel
+```
+
+## Die zeitlich und geografisch relevanten Wildschweinschrecks in Abhängigkeit der Wildschweindaten
+```{r  Zeitbezogene Daten des Wildscheinschrecks, echo=T, results='hide', message=F, warning=F}
+
+# alle Daten die sich nicht mit den Wilschweinen überschneiden löschen
+summary(wildschwein_BE$DatetimeUTC)
+schreck_agenda_relevant <- schreck_agenda%>%
+  filter(datum_on > "2014-05-28" & datum_on < "2016-10-18")
+
+# alle Wildschweinschrecks die ausserhalb des Wildschweingebiets sind und die nicht der richtigen Zeitperiode entsprechen, werden gelöscht.Es entsteht der finale Datensatz für die Wildschweinschrecks, mit dem wir arbeiten wollen (schreck_agenda_relevant)
+
+schreck_agenda_relevant <- left_join(WSS_sf_relevant,schreck_agenda_relevant,by="id")
+schreck_agenda_relevant <- schreck_agenda_relevant %>%
+  na.omit(datum_on)
+
+schreck_agenda_relevant$modus<-as.factor(schreck_agenda_relevant$modus)
+
+ggplot(schreck_agenda_relevant, aes(xmin = datum_on, xmax = datum_off, y=factor(id)))+
+         geom_errorbarh(aes(color = modus))
+```
+
+## Die Herausfilterung der Wildschweindaten, deren gemessenen Zeitperioden sich über die der relevanten Wildschweinschrecks ausweitet
+```{r welche wildschweine werden zeitgleich mit dem Wildschweinschreck-Alarm gemessen, echo=T, results='hide', message=F, warning=F}
+sampling_periods <- wildschwein_BE %>%
+  group_by(TierID, TierName, CollarID) %>%
+  summarise(
+    min = min(DatetimeUTC),
+    max = max(DatetimeUTC)
+  )
+
+intervall_wildschwein <- sampling_periods$min %--% sampling_periods$max
+
+sampling_periods$WSS_on_within_WS_intervalls<-schreck_agenda_relevant$datum_on %within% intervall_wildschwein
+sampling_periods$WSS_off_within_WS_intervalls<-schreck_agenda_relevant$datum_off %within% intervall_wildschwein
+
+
+sampling_periods_relevant <- sampling_periods %>%
+  filter(WSS_on_within_WS_intervalls==TRUE & WSS_off_within_WS_intervalls==TRUE) %>%
+  mutate(tiercollar = paste(TierID, TierName, CollarID))
+
+
+wildschwein_sf_relevant <- wildschwein_sf %>%
+  filter(tiercollar == "2 Sabine 12275" | tiercollar == "36 Olga 13976" | tiercollar == "40 Franz 12273" | tiercollar == "60 Venus 13969" | tiercollar == "84 Gaby 12274" )
+
+sampling_periods_relevant_convexhull <- wildschwein_sf_relevant %>%
+  group_by(TierID, TierName, CollarID, tiercollar) %>%
+  summarise() %>%
+  st_convex_hull()
+
+plot_boars_schreck_rel_spattemp<-ggplot()+
+ geom_sf(data = sampling_periods_relevant_convexhull, aes(fill = factor(tiercollar), alpha=0.1))+
+ geom_sf(data = schreck_agenda_relevant, aes(color=factor(id)))+
+  coord_sf(datum = 2056)
+
+
+plot_boars_schreck_rel_spattemp
+```
+
+
+
+## R Markdown tipps and tricks
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
-```
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
