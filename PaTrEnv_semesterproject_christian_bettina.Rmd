@@ -134,6 +134,7 @@ ggplot(schreck_agenda_relevant, aes(xmin = datum_on, xmax = datum_off, y=factor(
          geom_errorbarh(aes(color = modus))
 ```
 
+
 ## Die Herausfilterung der Wildschweindaten, deren gemessenen Zeitperioden sich über die der relevanten Wildschweinschrecks ausweitet
 ```{r welche wildschweine werden zeitgleich mit dem Wildschweinschreck-Alarm gemessen, echo=T, results='hide', message=F, warning=F}
 sampling_periods <- wildschwein_BE %>%
