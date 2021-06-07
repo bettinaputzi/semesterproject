@@ -2,9 +2,11 @@
 title: "Semseterprojekt Wildschweinschreck"
 output: html_document
 ---
+
 ADD CHUNK by clicking ctrl+alt+I
 
 ```{r libraries, echo=F, results='hide', message=F, warning=F}
+
 library(readr)        # to import tabular data (e.g. csv)
 library(dplyr)        # to manipulate (tabular) data
 library(ggplot2)      # to visualize data
