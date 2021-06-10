@@ -64,13 +64,18 @@ wildschwein_sf <- wildschwein_BE %>%
   mutate(tiercollar = paste(TierID, TierName, CollarID))
 wildschwein_sf
 
-# Die ortsbezogenen Wilschweinschreck-Daten werden dem CRS 4326 zugewiesen und zu 2056 umgewandelt 
+# Die ortsbezogenen Wilschweinschreck-Daten werden dem CRS 4326 zugewiesen und zu 2056 umgewandelt
 WSS_sf <- schreck_locations%>%
   st_as_sf(coords = c("N","E"), crs=4326, remove = FALSE) #N and E waren vertauscht
 
 WSS_sf <- st_transform(WSS_sf, 2056)
 WSS_sf
 str(WSS_sf)
+
+# wir möchten die Koordinaten in Einzelspalten. Mit folgendem Code erhalten wir x (für N) und y (für E)
+WSS_sf <- WSS_sf %>%
+  cbind(., st_coordinates(WSS_sf))
+
 
 # Ein Convex-Hull wird erstellt und geplottet, um die Verteilung der Wildschweine aufzuzeigen
 wildschwein_convex_hull <- wildschwein_sf %>%
@@ -97,13 +102,9 @@ plot_boars_schreck<-ggplot()+
 
 ggplotly(plot_boars_schreck)
 
-# jetzt können alle Wildschweinschrecks rausgefiltert werden, die nicht in den convex hulls sind. Viele der Wildschweinschrecks sind ausserhalb des Aufenthaltsgebiets von Wildschweinen. Wir machen das explorativ, gäbe aber sicher eine bessere Lösung
-
-WSS_sf$id=="WSS_2017_10b" # bzw. WSS_2017_6
-# alle N<47.07897 und N>46.80820 und alle E<7.2016144 und E> 6.778667 können im Dataensatz bleiben
-
+# jetzt können alle Wildschweinschrecks rausgefiltert werden, die nicht in den convex hulls sind. Viele der Wildschweinschrecks sind ausserhalb des Aufenthaltsgebiets von Wildschweinen. Wir machen das explorativ, d.h. wir grenzen die Koordinaten gemäss dem Plot ein.
 WSS_sf_relevant <- WSS_sf%>%
-  filter(E <= 47.078 & E>46.808201 & N <= 7.2016 & N > 6.778667)
+  filter(X <= 2580000 & X>2560000 & Y <= 1210000   & Y > 119000) # Alle Wildschwienschrecks im näheren Umkreis der Wildschwein-Aufethaltsgebiete sind in WSS_sf_relevant gespiechert
 	
 # hier nochmal der Plot, nur noch mit den relevanten Wildschweinschrecks
 plot_boars_schreck_rel<-ggplot()+
@@ -122,10 +123,10 @@ plot_boars_schreck_rel
 # alle Daten die sich nicht mit den Wilschweinen überschneiden löschen
 summary(wildschwein_BE$DatetimeUTC)
 schreck_agenda_relevant <- schreck_agenda%>%
-  filter(datum_on > "2014-05-28" & datum_on < "2016-10-18")
+  filter(datum_on > "2014-05-28" & datum_on < "2016-10-18") # somit sind alle Schrecks rausgefiltert, die vor der Messung der Wildschweine schon einen Alarmton von sich geben und alle Schrecks die nach der Periode der Wildschweinmessung noch einen Ton von sich geben. Denn basierend darauf können wir keine Analysen machen. 
 
-# alle Wildschweinschrecks die ausserhalb des Wildschweingebiets sind und die nicht der richtigen Zeitperiode entsprechen, werden gelöscht.Es entsteht der finale Datensatz für die Wildschweinschrecks, mit dem wir arbeiten wollen (schreck_agenda_relevant)
-
+# alle Wildschweinschrecks die ausserhalb des Wildschweingebiets sind und die nicht der richtigen Zeitperiode entsprechen, wurden gelöscht.Es entsteht der finale Datensatz für die Wildschweinschrecks, mit dem wir arbeiten wollen (schreck_agenda_relevant)
+# MIT DIESEM DATENSATZ ARBEITEN WIR FÜR DIE WILDSCHWEINSCHRECKANALYSE
 schreck_agenda_relevant <- left_join(WSS_sf_relevant,schreck_agenda_relevant,by="id")
 schreck_agenda_relevant <- schreck_agenda_relevant %>%
   na.omit(datum_on)
@@ -139,6 +140,8 @@ ggplot(schreck_agenda_relevant, aes(xmin = datum_on, xmax = datum_off, y=factor(
 
 ## Die Herausfilterung der Wildschweindaten, deren gemessenen Zeitperioden sich über die der relevanten Wildschweinschrecks ausweitet
 ```{r welche wildschweine werden zeitgleich mit dem Wildschweinschreck-Alarm gemessen, echo=T, results='hide', message=F, warning=F}
+
+# Nachfolgend werden die Samplingperioden mit den Werten mix und max pro Tier und Halsband identifiziert
 sampling_periods <- wildschwein_BE %>%
   group_by(TierID, TierName, CollarID) %>%
   summarise(
@@ -146,25 +149,31 @@ sampling_periods <- wildschwein_BE %>%
     max = max(DatetimeUTC)
   )
 
-intervall_wildschwein <- sampling_periods$min %--% sampling_periods$max
+# es muss ein Intervall gebildet werden, damit nachfolgend herausgefunden werden kann, ob die Wildschweinschrecks innerhalb einer Wildschwein-Messperiode eingestellt waren (d.h. Ein- UND Ausschaltung während der Messperiode der Schweine stattfindet (idealfall). Würde dieser Idealfall nicht eintreten, könne man evtl. auch andere mögliche Schweine bestimmen.  
+intervall_wildschwein <- sampling_periods$min %--% sampling_periods$max #1) Intervallbildung
 
-sampling_periods$WSS_on_within_WS_intervalls<-schreck_agenda_relevant$datum_on %within% intervall_wildschwein
-sampling_periods$WSS_off_within_WS_intervalls<-schreck_agenda_relevant$datum_off %within% intervall_wildschwein
+sampling_periods$WSS_on_within_WS_intervalls<-schreck_agenda_relevant$datum_on %within% intervall_wildschwein #ist die Einschaltung innterhalb der Messperiode der Wildschweine?
+sampling_periods$WSS_off_within_WS_intervalls<-schreck_agenda_relevant$datum_off %within% intervall_wildschwein # ist die Ausschaltung innterhalb der Messperiode der Wildschweine?
 
-
+# Jetzt werden alle Schweine herausgefiltert, die vor der Einschaltung, während der Messperiode und nach der Ausschaltung der noch in Frage kommenden Wildschweinschrecks gemessen werden. d.h. alle die die Ein- und Ausschaltung überdauern. 
 sampling_periods_relevant <- sampling_periods %>%
   filter(WSS_on_within_WS_intervalls==TRUE & WSS_off_within_WS_intervalls==TRUE) %>%
   mutate(tiercollar = paste(TierID, TierName, CollarID))
 
+# es verbleiben 5 relevante Wildschweine in sampling_periods_relevant. Diese Wildschweine werden nun im Detaildatensatz der Wildschweine, mit allen relevanten Daten, herausgefiltert.
 
+#MIT DIESEM DATENSATZ ARBEITEN WIR FÜR DIE WILDSCHWEINANALYSE
 wildschwein_sf_relevant <- wildschwein_sf %>%
   filter(tiercollar == "2 Sabine 12275" | tiercollar == "36 Olga 13976" | tiercollar == "40 Franz 12273" | tiercollar == "60 Venus 13969" | tiercollar == "84 Gaby 12274" )
 
+# Es muss wiederum ein Convexhull erstellt werden, für den gefilterten Wildschwiendatensatz
 sampling_periods_relevant_convexhull <- wildschwein_sf_relevant %>%
   group_by(TierID, TierName, CollarID, tiercollar) %>%
   summarise() %>%
   st_convex_hull()
 
+
+# Zuletzt wird nochmal der gleiche Plot wie anfangs erstellt, einfach nur noch mit den Relevanten Wildschweinschrecks und den relevanten Wildschweinen.
 plot_boars_schreck_rel_spattemp<-ggplot()+
  geom_sf(data = sampling_periods_relevant_convexhull, aes(fill = factor(tiercollar), alpha=0.1))+
  geom_sf(data = schreck_agenda_relevant, aes(color=factor(id)))+
