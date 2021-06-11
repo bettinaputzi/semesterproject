@@ -218,7 +218,7 @@ plot_boars_schreck_rel_spattemp
 schreck_agenda_relevant <- schreck_agenda_relevant %>%
   mutate(timelag_days = as.numeric(difftime(datum_off, datum_on, unit = "days")))
 schreck_agenda_relevant
-# Die Kleinste Zeitperiode ist 5 Tage, was höchst wahrscheinlich nicht genügend Zeit ist für ein Wildschwein um sich daran zu gewöhnen. Dies wird höchstens am Ende noch utnersucht, sofern sich herausstellt, dass sie sich so schnell daran gewöhnen. 
+# Die Kleinste Zeitperiode ist 5 Tage, was höchst wahrscheinlich nicht genügend Zeit ist für ein Wildschwein um sich daran zu gewöhnen. Dies wird höchstens am Ende noch untersucht, sofern sich herausstellt, dass sie sich so schnell daran gewöhnen. 
 
 # Timelag bestimmenf für jedes Wildschwein, um zu sehen wie lange sie jeweils gemessen werden
 wildschwein_relevant_timelags <- wildschwein_sf_relevant %>%
@@ -235,14 +235,13 @@ ggplot()+
   geom_errorbarh(data = sampling_periods_relevant, aes(xmin=min, xmax=max, y=factor(tiercollar)),color="blue")+
   geom_errorbarh(data = schreck_agenda_relevant, aes(xmin=datum_on, xmax=datum_off, y=factor(id)),color="green")+
   scale_x_datetime(date_breaks = "1 month")+  
-  theme(axis.text.x = element_text(size = 10, angle=90, hjust=1))
+  theme(axis.text.x = element_text(size = 10, angle=90, hjust=1))+
+  ylab("Wildschweine (blau) und Wildschweinschrecks (grün)")
 # Gaby wäre für WSS_2016_13 geeignet, wobei dieser Wildschweinschreck mit 5 Tagen sehr kurz in Betrieb ist
 # Sabine, Olga und Franz eignen sich alle drei für die drei Wildschweinschrecks "WSS_2015_01", "WSS_2015_03" und "WSS_2015_04"
 # Venus ist für die Analyse von WSS_2016_01, WSS_2016_05 und WSS_2016_06 geeignet,
 
 # Basierend darauf entscheiden wir, die Betrachtung von delta T1 bis delta T4 jeweils für eine Woche zu wählen.
-
-
 
 ```
 
