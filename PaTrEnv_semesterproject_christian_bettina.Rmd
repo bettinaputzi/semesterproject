@@ -5,6 +5,11 @@ output: html_document
 
 ADD CHUNK by clicking ctrl+alt+I
 
+```{r}
+
+```
+
+
 ```{r libraries, echo=F, results='hide', message=F, warning=F}
 
 library(readr)        # to import tabular data (e.g. csv)
@@ -17,14 +22,16 @@ library(zoo)
 #install.packages("devtools")
 library(devtools)
 library(ComputationalMovementAnalysisData)
+
 library(forcats)
 library(plotly)
+library(tidyr) # to reshape tables
 ```
 
 
 
 ```{r Daten einlesen, echo=F, results='hide', message=F, warning=F}
-devtools::install_github("ComputationalMovementAnalysis/ComputationalMovementAnalysisData")
+#devtools::install_github("ComputationalMovementAnalysis/ComputationalMovementAnalysisData")
 head(wildschwein_BE)
 wildschwein_BE<-wildschwein_BE
 wildschwein_metadata<-wildschwein_metadata
@@ -66,13 +73,13 @@ wildschwein_sf
 
 # Die ortsbezogenen Wilschweinschreck-Daten werden dem CRS 4326 zugewiesen und zu 2056 umgewandelt
 WSS_sf <- schreck_locations%>%
-  st_as_sf(coords = c("N","E"), crs=4326, remove = FALSE) #N and E waren vertauscht
+  st_as_sf(coords = c("lon","lat"), crs=4326, remove = FALSE) 
 
 WSS_sf <- st_transform(WSS_sf, 2056)
 WSS_sf
 str(WSS_sf)
 
-# wir möchten die Koordinaten in Einzelspalten. Mit folgendem Code erhalten wir x (für N) und y (für E)
+# wir möchten die Koordinaten in Einzelspalten. Mit folgendem Code erhalten wir x und y (für lat und lon)
 WSS_sf <- WSS_sf %>%
   cbind(., st_coordinates(WSS_sf))
 
@@ -112,8 +119,7 @@ plot_boars_schreck_rel<-ggplot()+
  geom_sf(data = WSS_sf_relevant, aes(color=factor(id)))+
   coord_sf(datum = 2056)+
   theme(legend.position = "none")
-  #xlim(2560000,2580000)+
-  #ylim(1190000,1210000)
+
 plot_boars_schreck_rel
 ```
 
@@ -173,7 +179,7 @@ sampling_periods_relevant_convexhull <- wildschwein_sf_relevant %>%
   st_convex_hull()
 
 
-# Zuletzt wird nochmal der gleiche Plot wie anfangs erstellt, einfach nur noch mit den Relevanten Wildschweinschrecks und den relevanten Wildschweinen.
+# Zuletzt wird nochmal der gleiche Plot wie anfangs erstellt, einfach nur noch mit den relevanten Wildschweinschrecks und den relevanten Wildschweinen.
 plot_boars_schreck_rel_spattemp<-ggplot()+
  geom_sf(data = sampling_periods_relevant_convexhull, aes(fill = factor(tiercollar), alpha=0.1))+
  geom_sf(data = schreck_agenda_relevant, aes(color=factor(id)))+
@@ -183,7 +189,78 @@ plot_boars_schreck_rel_spattemp<-ggplot()+
 plot_boars_schreck_rel_spattemp
 ```
 
+## Farbcodes zu den Wildschweinen zuordnen
+```{r Farbcodes zu den Wildschweinen zuordnen, echo=T, results='hide', message=F, warning=F}
+# Hierzu verwenden wir Colorbrewer 2.0 https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=5
+Farbset<-c("2 Sabine 12275" = "#d7191c",
+           "36 Olga 13976" = "#fdae61",
+           "40 Franz 12273" = "#ffffbf",
+           "60 Venus 13969" = "#abd9e9",
+           "84 Gaby 12274" = "#2c7bb6")
+Farbset
 
+# der Plot mit allen relevanten SChweinen und allen relevanten WSS wird nochmal geplottet
+plot_boars_schreck_rel_spattemp<-ggplot()+
+ geom_sf(data = sampling_periods_relevant_convexhull, aes(fill = factor(tiercollar), alpha=0.1))+
+ geom_sf(data = schreck_agenda_relevant)+ # man könnte auch Farben den Wildschweinschrecks zuordnern, mit dem Zusatz aes(color=factor(id)))
+  coord_sf(datum = 2056)+
+  scale_fill_manual(values=Farbset)+
+  scale_color_brewer(type = "qual")
+
+
+plot_boars_schreck_rel_spattemp
+
+```
+
+## die Überlappungen der Wildschweine mit den einzelnen Wildschweinschrecks
+```{r die Überlappungen der Wildschweine mit den einzelnen Wildschweinschrecks darstellen, echo=T, results='hide', message=F, warning=F}
+# Timelag bestimmen für jeden Wildschweinschreck, um zu schauen, wie lange diese jeweils angemacht sind.
+schreck_agenda_relevant <- schreck_agenda_relevant %>%
+  mutate(timelag_days = as.numeric(difftime(datum_off, datum_on, unit = "days")))
+schreck_agenda_relevant
+# Die Kleinste Zeitperiode ist 5 Tage, was höchst wahrscheinlich nicht genügend Zeit ist für ein Wildschwein um sich daran zu gewöhnen. Dies wird höchstens am Ende noch utnersucht, sofern sich herausstellt, dass sie sich so schnell daran gewöhnen. 
+
+# Timelag bestimmenf für jedes Wildschwein, um zu sehen wie lange sie jeweils gemessen werden
+wildschwein_relevant_timelags <- wildschwein_sf_relevant %>%
+  group_by(tiercollar)%>%
+  summarise(teimlag_days = as.numeric(difftime(max(DatetimeUTC),min(DatetimeUTC))))
+
+# oder dasselbe nochmal mit sampling periods
+sampling_periods_relevant <- sampling_periods_relevant %>%
+  mutate(timelag_days = as.numeric(difftime(max,min,unit="days")))
+sampling_periods_relevant
+# Gaby wird mit 55 Tagen am wenigsten lang gemessen. 
+
+ggplot()+
+  geom_errorbarh(data = sampling_periods_relevant, aes(xmin=min, xmax=max, y=factor(tiercollar)),color="blue")+
+  geom_errorbarh(data = schreck_agenda_relevant, aes(xmin=datum_on, xmax=datum_off, y=factor(id)),color="green")+
+  scale_x_datetime(date_breaks = "1 month")+  
+  theme(axis.text.x = element_text(size = 10, angle=90, hjust=1))
+# Gaby wäre für WSS_2016_13 geeignet, wobei dieser Wildschweinschreck mit 5 Tagen sehr kurz in Betrieb ist
+# Sabine, Olga und Franz eignen sich alle drei für die drei Wildschweinschrecks "WSS_2015_01", "WSS_2015_03" und "WSS_2015_04"
+# Venus ist für die Analyse von WSS_2016_01, WSS_2016_05 und WSS_2016_06 geeignet,
+
+# Basierend darauf entscheiden wir, die Betrachtung von delta T1 bis delta T4 jeweils für eine Woche zu wählen.
+
+
+
+```
+
+## Die Minimaldistanz zu den Wildschweinschrecks
+```{r die Minimaldistanz zu den Wildschweinschrecks bestimmen, echo=T, results='hide', message=F, warning=F}
+#wieder Wildschwein_sf_relevant und schreck_agenda_relevant arbeiten. Wie bringen wir die zwei Tabellen zusammen?
+
+# Daten studieren:
+wildschwein_sf_relevant
+# hier fehlt noch das auseinandernehmen der geometries
+wildschwein_sf_relevant <- wildschwein_sf_relevant %>%
+  cbind(., st_coordinates(wildschwein_sf_relevant))
+
+schreck_agenda_relevant
+
+# spalten mit den koordinaten der WWS zu den Wildschweindaten hinzufügen und dafür Eucledian Distances berechnen?
+  
+```
 
 ## R Markdown tipps and tricks
 
