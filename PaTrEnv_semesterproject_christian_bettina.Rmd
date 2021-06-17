@@ -26,6 +26,7 @@ library(ComputationalMovementAnalysisData)
 library(forcats)
 library(plotly)
 library(tidyr) # to reshape tables
+library(tmap)     # Background maps
 ```
 
 
@@ -257,9 +258,130 @@ wildschwein_sf_relevant <- wildschwein_sf_relevant %>%
 
 schreck_agenda_relevant
 
-# spalten mit den koordinaten der WWS zu den Wildschweindaten hinzufügen und dafür Eucledian Distances berechnen?
-  
+
+
+## Die 6 verbleibenden Wildschweinschrecks werden dem Datensatz der Wildschweine hinzugefügt
+WSS_2016_01<-subset(schreck_agenda_relevant_short, id=="WSS_2016_01")
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2016_01<-rep(WSS_2016_01$X, times=84915)
+Y_WSS_2016_01<-rep(WSS_2016_01$Y, times=84915)
+
+
+WSS_2016_05<-subset(schreck_agenda_relevant_short, id=="WSS_2016_05")
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2016_05<-rep(WSS_2016_05$X, times=84915)
+Y_WSS_2016_05<-rep(WSS_2016_05$Y, times=84915)
+
+WSS_2016_06<-subset(schreck_agenda_relevant_short, id=="WSS_2016_06")
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2016_06<-rep(WSS_2016_06$X, times=84915)
+Y_WSS_2016_06<-rep(WSS_2016_06$Y, times=84915)
+
+WSS_2015_01<-subset(schreck_agenda_relevant_short, id=="WSS_2015_01")
+WSS_2015_01<-unique(WSS_2015_01)
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2015_01<-rep(WSS_2015_01$X, times=84915) 
+Y_WSS_2015_01<-rep(WSS_2015_01$Y, times=84915)
+
+WSS_2015_03<-subset(schreck_agenda_relevant_short, id=="WSS_2015_03")
+WSS_2015_03<-unique(WSS_2015_03)
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2015_03<-rep(WSS_2015_03$X, times=84915)
+Y_WSS_2015_03<-rep(WSS_2015_03$Y, times=84915)
+
+WSS_2015_04<-subset(schreck_agenda_relevant_short, id=="WSS_2015_04")
+WSS_2015_04<-unique(WSS_2015_04)
+str(wildschwein_sf_relevant) # 84915 observations
+
+X_WSS_2015_04<-rep(WSS_2015_04$X, times=84915)
+Y_WSS_2015_04<-rep(WSS_2015_04$Y, times=84915)
+
+
+Distance_DS<-cbind(wildschwein_sf_relevant,X_WSS_2016_01,Y_WSS_2016_01, X_WSS_2016_05, Y_WSS_2016_05, X_WSS_2016_06, Y_WSS_2016_06, X_WSS_2015_01, Y_WSS_2015_01,X_WSS_2015_03, Y_WSS_2015_03, X_WSS_2015_04, Y_WSS_2015_04)
+
+# Die Euklidischen Distanzen zum Schreck werden berechnet um herauszufienden, ob die Schweine potenziell vom Wildschwein beeinflusst werden könnten
+# zuerst für Venus
+Venus <- Distance_DS%>%
+  subset(TierName=="Venus")%>%
+  mutate(distance_2016_01 = sqrt((X-X_WSS_2016_01)^2+(Y-Y_WSS_2016_01)^2))%>%
+  mutate(distance_2016_05 = sqrt((X-X_WSS_2016_05)^2+(Y-Y_WSS_2016_05)^2))%>%
+  mutate(distance_2016_06 = sqrt((X-X_WSS_2016_06)^2+(Y-Y_WSS_2016_06)^2))
+min(Venus$distance_2016_01) ## die Minimaldistanz ist 2781 Meter, das heisst, dass Venus wohl nicht von diesem Schreck beeinflusst wird.
+min(Venus$distance_2016_05) ## die Minimaldistanz ist 4612 Meter, das heisst, dass Venus wohl nicht von diesem Schreck beeinflusst wird.
+min(Venus$distance_2016_06) ## die Minimaldistanz ist 448 Meter, das heisst, dass Venus wohl kaum von diesem Schreck beeinflusst wird.
+
+# Sabine
+Sabine <- Distance_DS%>%
+  subset(TierName=="Sabine")%>%
+  mutate(distance_2015_01 = sqrt((X-X_WSS_2015_01)^2+(Y-Y_WSS_2015_01)^2))%>%
+  mutate(distance_2015_03 = sqrt((X-X_WSS_2015_03)^2+(Y-Y_WSS_2015_03)^2))%>%
+  mutate(distance_2015_04 = sqrt((X-X_WSS_2015_04)^2+(Y-Y_WSS_2015_04)^2))
+min(Sabine$distance_2015_01) ## die Minimaldistanz ist 10 Meter, das heisst, dass Sabine von diesem Schreck beeinflusst werden könnte.
+min(Sabine$distance_2015_03) ## die Minimaldistanz ist 25 Meter, das heisst, dass Sabine von diesem Schreck beeinflusst werden könnte.
+min(Sabine$distance_2015_04) ## die Minimaldistanz ist 42 Meter, das heisst, dass Sabine von diesem Schreck beeinflusst werden könnte.
+
+# Olga
+Olga <- Distance_DS%>%
+  subset(TierName=="Olga")%>%
+  mutate(distance_2015_01 = sqrt((X-X_WSS_2015_01)^2+(Y-Y_WSS_2015_01)^2))%>%
+  mutate(distance_2015_03 = sqrt((X-X_WSS_2015_03)^2+(Y-Y_WSS_2015_03)^2))%>%
+  mutate(distance_2015_04 = sqrt((X-X_WSS_2015_04)^2+(Y-Y_WSS_2015_04)^2))
+min(Olga$distance_2015_01) ## die Minimaldistanz ist 8 Meter, das heisst, dass Olga von diesem Schreck beeinflusst werden könnte.
+min(Olga$distance_2015_03) ## die Minimaldistanz ist 704 Meter, das heisst, dass Olga wohl nicht von diesem Schreck beeinflusst wird.
+min(Olga$distance_2015_04) ## die Minimaldistanz ist 401 Meter, das heisst, dass Olga wohl kaum von diesem Schreck beeinflusst wird.
+
+# Franz
+Franz <- Distance_DS%>%
+  subset(TierName=="Franz")%>%
+  mutate(distance_2015_01 = sqrt((X-X_WSS_2015_01)^2+(Y-Y_WSS_2015_01)^2))%>%
+  mutate(distance_2015_03 = sqrt((X-X_WSS_2015_03)^2+(Y-Y_WSS_2015_03)^2))%>%
+  mutate(distance_2015_04 = sqrt((X-X_WSS_2015_04)^2+(Y-Y_WSS_2015_04)^2))
+min(Franz$distance_2015_01) ## die Minimaldistanz ist 8 Meter, das heisst, dass Franz von diesem Schreck beeinflusst werden könnte.
+min(Franz$distance_2015_03) ## die Minimaldistanz ist 704 Meter, das heisst, dass Franz wohl nicht von diesem Schreck beeinflusst
+min(Franz$distance_2015_04) ## die Minimaldistanz ist 401 Meter, das heisst, dass Franz wohl kaum von diesem Schreck beeinflusst wird.
+
 ```
+
+
+```{r Hintergrundmap einfügen, echo=T, results='hide', message=F, warning=F }
+crop_fanel <- read_sf("Feldaufnahmen_Fanel.gpkg")
+
+head(crop_fanel)
+
+summary(crop_fanel)
+
+unique(crop_fanel$Frucht)
+
+st_crs(crop_fanel)
+
+ggplot() +
+  geom_sf(data = crop_fanel,aes(fill = Frucht))+
+  geom_sf(data = sampling_periods_relevant_convexhull, aes(color = factor(tiercollar), alpha=0.1))+
+  geom_sf(data = schreck_agenda_relevant)+ # man könnte auch Farben den Wildschweinschrecks zuordnen, mit dem Zusatz aes(color=factor(id)))
+  coord_sf(datum = 2056)+
+  scale_color_manual(values=Farbset)+
+
+
+# Eine Hintergrundmap einfügen, um zu sehen, ob die Daten zur "Frucht" für die Forschungsfrage 2 ausreichen. das scheint zu passen, nur Franz hält sich auch in Gebieten auf, wo es keine Fruchdaten gibt.
+  
+pk100_BE <- rast("pk100_BE.tif")
+tm_shape(pk100_BE) + 
+  tm_rgb() +
+  tm_shape(crop_fanel)+
+  tm_fill(col="Frucht")+
+  tm_shape(sampling_periods_relevant_convexhull)+
+  tm_polygons(col="tiercollar", alpha=0.5, boarder.col="black", fill=Farbset)+
+  tm_layout(legend.outside = TRUE)
+
+
+```
+
+
 
 ## R Markdown tipps and tricks
 
