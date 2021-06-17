@@ -247,7 +247,7 @@ ggplot()+
 ```
 
 ## Die Minimaldistanz zu den Wildschweinschrecks
-```{r die Minimaldistanz zu den Wildschweinschrecks bestimmen, echo=T, results='hide', message=F, warning=F}
+```{r die Minimaldistanz zu den Wildschweinschrecks bestimmen, echo=F, message=F, warning=F}
 #wieder Wildschwein_sf_relevant und schreck_agenda_relevant arbeiten. Wie bringen wir die zwei Tabellen zusammen?
 
 # Daten studieren:
@@ -256,11 +256,26 @@ wildschwein_sf_relevant
 wildschwein_sf_relevant <- wildschwein_sf_relevant %>%
   cbind(., st_coordinates(wildschwein_sf_relevant))
 
-schreck_agenda_relevant
+schreck_agenda_relevant_short <- select(schreck_agenda_relevant, id, X, Y)
 
 
+###### Trial and Error ;)
+# WSS_id=c("WSS_2015_01","WSS_2015_03","WSS_2015_04", "WSS_2016_01","WSS_2016_05","WSS_2016_06")
+# WSS_X=c(WSS_2015_01$X,WSS_2015_03$X,WSS_2015_04$X, WSS_2016_01$X,WSS_2016_05$X,WSS_2016_06$X)
+# WSS_Y=c(WSS_2015_01$Y,WSS_2015_03$Y,WSS_2015_04$Y, WSS_2016_01$Y,WSS_2016_05$Y,WSS_2016_06$Y)
+# cbind(WSS_id,WSS_X,WSS_Y)
+# 
+# library(purrr)
+# 
+# 
+# WSS_list_id_X <- map(WSS_id, function(X){
+#   X_WSS_id<-rep(WSS_id$X, times=84915)
+# 
+# })
+####### End of Trial and Error
 
 ## Die 6 verbleibenden Wildschweinschrecks werden dem Datensatz der Wildschweine hinzugefügt
+
 WSS_2016_01<-subset(schreck_agenda_relevant_short, id=="WSS_2016_01")
 str(wildschwein_sf_relevant) # 84915 observations
 
@@ -306,6 +321,7 @@ Distance_DS<-cbind(wildschwein_sf_relevant,X_WSS_2016_01,Y_WSS_2016_01, X_WSS_20
 
 # Die Euklidischen Distanzen zum Schreck werden berechnet um herauszufienden, ob die Schweine potenziell vom Wildschwein beeinflusst werden könnten
 # zuerst für Venus
+
 Venus <- Distance_DS%>%
   subset(TierName=="Venus")%>%
   mutate(distance_2016_01 = sqrt((X-X_WSS_2016_01)^2+(Y-Y_WSS_2016_01)^2))%>%
@@ -345,8 +361,18 @@ min(Franz$distance_2015_01) ## die Minimaldistanz ist 8 Meter, das heisst, dass 
 min(Franz$distance_2015_03) ## die Minimaldistanz ist 704 Meter, das heisst, dass Franz wohl nicht von diesem Schreck beeinflusst
 min(Franz$distance_2015_04) ## die Minimaldistanz ist 401 Meter, das heisst, dass Franz wohl kaum von diesem Schreck beeinflusst wird.
 
-```
 
+Mind_dist_table <-data.frame(WSS=c("2015_01","2015_03","2015_04", "2016_01","2016_05","2016_06"),
+                Franz=c((min(Franz$distance_2015_01)),min(Franz$distance_2015_03),min(Franz$distance_2015_04), "NA", "NA", "NA"),
+                Sabine=c((min(Sabine$distance_2015_01)),min(Sabine$distance_2015_03),min(Sabine$distance_2015_04),"NA", "NA", "NA"),
+                Olga=c((min(Olga$distance_2015_01)),min(Olga$distance_2015_03),min(Olga$distance_2015_04),"NA", "NA", "NA"),
+                Venus=c("NA", "NA", "NA", min(Venus$distance_2016_01) , min(Venus$distance_2016_05), min(Venus$distance_2016_06))
+                )
+                
+knitr::kable(Mind_dist_table,capiton="Minimaldistanzen zwischen den Wildschwienschrecks und den Wildschweinen")
+
+```
+knitr::kable(Mind_dist_table,capiton="Minimaldistanzen zwischen den Wildschwienschrecks und den Wildschweinen")
 
 ```{r Hintergrundmap einfügen, echo=T, results='hide', message=F, warning=F }
 crop_fanel <- read_sf("Feldaufnahmen_Fanel.gpkg")
@@ -364,7 +390,7 @@ ggplot() +
   geom_sf(data = sampling_periods_relevant_convexhull, aes(color = factor(tiercollar), alpha=0.1))+
   geom_sf(data = schreck_agenda_relevant)+ # man könnte auch Farben den Wildschweinschrecks zuordnen, mit dem Zusatz aes(color=factor(id)))
   coord_sf(datum = 2056)+
-  scale_color_manual(values=Farbset)+
+  scale_color_manual(values=Farbset)
 
 
 # Eine Hintergrundmap einfügen, um zu sehen, ob die Daten zur "Frucht" für die Forschungsfrage 2 ausreichen. das scheint zu passen, nur Franz hält sich auch in Gebieten auf, wo es keine Fruchdaten gibt.
